@@ -1,0 +1,57 @@
+[
+  {
+    "name": "inetRouter",
+    "cpus": 1,
+    "gui": false,
+    "box": "centos/8",
+    "private_network": 
+    [
+      { "ip": "192.168.255.1", "adapter": 2, "netmask": "255.255.255.252", "virtualbox__intnet": "router-net" },
+      { "ip": "192.168.56.10", "adapter": 3, "netmask": "255.255.255.0" }
+    ],
+    "memory": "640",
+    "no_share": true
+  },
+  {
+    "name": "centralRouter",
+    "cpus": 1,
+    "gui": false,
+    "box": "centos/8",
+    "private_network":
+    [
+      { "ip": "192.168.255.2", "adapter": 2, "netmask": "255.255.255.252", "virtualbox__intnet": "router-net"      },
+      { "ip": "192.168.0.1",   "adapter": 3, "netmask": "255.255.255.240", "virtualbox__intnet": "dir-net"         },
+      { "ip": "192.168.0.33",  "adapter": 4, "netmask": "255.255.255.240", "virtualbox__intnet": "hw-net"          },
+      { "ip": "192.168.56.11", "adapter": 5, "netmask": "255.255.255.0" }
+    ],
+    "memory": 640,
+    "no_share": true
+  },
+  {
+    "name": "centralServer",
+    "cpus": 1,
+    "gui": false,
+    "box": "centos/8",
+    "private_network": 
+    [
+      { "ip": "192.168.0.2",   "adapter": 2, "netmask": "255.255.255.240", "virtualbox__intnet": "dir-net" },
+      { "ip": "192.168.56.12", "adapter": 3, "netmask": "255.255.255.0" }
+    ],
+    "memory": "640",
+    "no_share": true
+  },
+  {
+    "name": "inetRouter2",
+    "cpus": 1,
+    "gui": false,
+    "box": "centos/8",
+    "private_network": 
+    [
+      { "ip": "192.168.0.34", "adapter": 2, "netmask": "255.255.255.240", "virtualbox__intnet": "hw-net" },
+      { "ip": "192.168.56.13", "adapter": 3, "netmask": "255.255.255.0" },
+      { "ip": "10.10.12.1", "adapter": 4, "netmask": "255.255.255.0", "virtualbox__intnet": "clients-net" }
+    ],
+    "memory": "640",
+    "no_share": true
+  }
+]

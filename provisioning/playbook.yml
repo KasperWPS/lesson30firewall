@@ -1,0 +1,197 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+  - name: Accept login with password from sshd
+    ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PasswordAuthentication no$'
+      line: 'PasswordAuthentication yes'
+      state: present
+    notify:
+      - Restart sshd
+
+  - name: Set timezone
+    community.general.timezone:
+      name: Europe/Moscow
+
+  - name: List all files in directory /etc/yum.repos.d/*.repo
+    find:
+      paths: "/etc/yum.repos.d/"
+      patterns: "*.repo"
+    register: repos
+
+  - name: Comment mirrorlist /etc/yum.repos.d/CentOS-*
+    ansible.builtin.lineinfile:
+      backrefs: true
+      path: "{{ item.path }}"
+      regexp: '^(mirrorlist=.+)'
+      line: '#\1'
+    with_items: "{{ repos.files }}"
+
+  - name: Replace baseurl
+    ansible.builtin.lineinfile:
+      backrefs: true
+      path: "{{ item.path }}"
+      regexp: '^#baseurl=http:\/\/mirror.centos.org(.+)'
+      line: 'baseurl=http://vault.centos.org\1'
+    with_items: "{{ repos.files }}"
+
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+    when: "'routers' in group_names"
+
+  - name: Install epel-release
+    ansible.builtin.yum:
+      name: epel-release
+      state: present
+
+  - name: Install soft
+    ansible.builtin.yum:
+      name:
+        - vim
+        - tcpdump
+        - traceroute
+        - nmap
+      state: present
+
+  - name: Install nginx on centralServer
+    ansible.builtin.yum:
+      name:
+        - nginx
+      state: present
+    when: (ansible_hostname == "centralServer")
+    notify:
+      - Start nginx on centralServer
+
+  - name: Disable default route on eth0 interface
+    community.general.nmcli:
+      conn_name: System eth0
+      type: ethernet
+      ifname: eth0
+      gw4_ignore_auto: true
+      state: present
+    when: (ansible_hostname != "inetRouter")
+    notify:
+      - Eth0 connect
+
+  - name: Copy nftables config on inetRouter
+    ansible.builtin.copy:
+      src: files/inetRouter-nftables.conf
+      dest: /etc/nftables.conf
+    notify:
+      - Configure nftables
+    when: (ansible_hostname == "inetRouter")
+
+  - name: Copy nftables config on inetRouter2
+    ansible.builtin.copy:
+      src: files/inetRouter2-nftables.conf
+      dest: /etc/nftables.conf
+    notify:
+      - Configure nftables
+    when: (ansible_hostname == "inetRouter2")
+
+  - name: Copy nftables config on centralServer
+    ansible.builtin.copy:
+      src: files/centralServer-nftables.conf
+      dest: /etc/nftables.conf
+    notify:
+      - Configure nftables
+    when: (ansible_hostname == "centralServer")
+
+  - name: Copy knock script on centralRouter
+    ansible.builtin.copy:
+      src: files/centralRouter-knock
+      dest: /usr/local/bin/knock
+      mode: 0755
+    when: (ansible_hostname == "centralRouter")
+
+  - name: Gateway configure on centralServer
+    community.general.nmcli:
+      conn_name: System eth1
+      type: ethernet
+      ifname: eth1
+      gw4: "192.168.0.1"
+      state: present
+    notify:
+      - Eth1 connect
+    when: (ansible_hostname == "centralServer")
+
+  - name: Gateway configure on inetRouter2
+    community.general.nmcli:
+      conn_name: System eth1
+      type: ethernet
+      ifname: eth1
+      gw4: "192.168.0.33"
+      state: present
+    notify:
+      - Eth1 connect
+    when: (ansible_hostname == "inetRouter2")
+
+  - name: Gateway configure on centralRouter
+    community.general.nmcli:
+      conn_name: System eth1
+      type: ethernet
+      ifname: eth1
+      gw4: "192.168.255.1"
+      state: present
+    notify:
+      - Eth1 connect
+    when: (ansible_hostname == "centralRouter")
+
+  - name: Add routes on inetRouter
+    community.general.nmcli:
+      conn_name: System eth1
+      type: ethernet
+      ifname: eth1
+      routes4:
+        - 192.168.0.0/28 192.168.255.2
+        - 192.168.0.32/28 192.168.255.2
+      state: present
+    notify:
+      - Eth1 connect
+    when: (ansible_hostname == "inetRouter")
+
+  handlers:
+
+  - name: Eth0 connect
+    command: nmcli connection up 'System eth0'
+
+  - name: Eth1 connect
+    command: nmcli connection up 'System eth1'
+
+  - name: Eth5 connect
+    command: nmcli connection up 'System eth5'
+
+  - name: Eth6 connect
+    command: nmcli connection up 'System eth6'
+
+  - name: Restart sshd
+    ansible.builtin.service:
+      name: sshd
+      state: restarted
+
+  - name: Configure nftables
+    ansible.builtin.lineinfile:
+      path: /etc/sysconfig/nftables.conf
+      line: 'include "/etc/nftables.conf"'
+      state: present
+    notify:
+      - Restart nftables service
+
+  - name: Restart nftables service
+    ansible.builtin.service:
+      name: nftables
+      enabled: true
+      state: restarted
+
+  - name: Start nginx on centralServer
+    ansible.builtin.service:
+      name: nginx
+      enabled: true
+      state: restarted

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+knock() {
+  HOST=$1
+  shift
+  for ARG in "$@"
+  do
+    nmap -Pn --host-timeout 2 --max-retries 0 -p $ARG $HOST
+  done
+}
+
+knock 192.168.255.1 2425 4252 1452 4125
+
+ssh vagrant@192.168.255.1
+
